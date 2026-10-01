@@ -108,8 +108,12 @@ def _resolve_profile_theme(*, profile: str) -> dict:
     theme_override = entry.get("theme")
     inherit = entry.get("inherit_from_default", False)
 
-    if inherit or not theme_override:
+    if inherit:
         return {"profile": profile, "theme": global_theme, "inherit_from_default": True, "source": "default"}
+
+    # inherit_from_default=False but no theme set → using global theme, not inheriting.
+    if not theme_override:
+        return {"profile": profile, "theme": global_theme, "inherit_from_default": False, "source": "global"}
 
     # Explicit override — validate it's a known theme.
     from hermes_cli.web_server_dashboard import _BUILTIN_DASHBOARD_THEMES
@@ -155,12 +159,17 @@ async def set_profile_theme(request: Request, body: ProfileThemeSetBody):
             cfg["dashboard"]["profile_themes"] = pt
 
         if body.inherit_from_default:
-            # Clear the override entry.
+            # Clear the override entry — profile inherits from default.
             pt.pop(body.profile, None)
         else:
             if not body.theme:
-                raise HTTPException(status_code=400, detail="theme is required when inherit_from_default is False")
-            pt[body.profile] = {"theme": body.theme, "inherit_from_default": False}
+                # inherit_from_default=False with no theme: treat as "use global theme
+                # but not inheriting" — pin the global theme as the override so the UI
+                # can show the profile as "not inheriting" while still rendering correctly.
+                global_theme = cfg_get(cfg, "dashboard", "theme", default="default")
+                pt[body.profile] = {"theme": global_theme, "inherit_from_default": False}
+            else:
+                pt[body.profile] = {"theme": body.theme, "inherit_from_default": False}
 
         save_config(cfg)
         return _resolve_profile_theme(profile=body.profile)
