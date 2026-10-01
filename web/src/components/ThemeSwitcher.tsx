@@ -179,11 +179,12 @@ function ThemeSwitcherOptions({
   themeName,
   isProfileScoped,
   isInherited,
-  overrideThemeName,
+  overrideThemeName: _overrideThemeName,
   setInherit,
-  setOverride,
+  setOverride: _setOverride,
   loading,
 }: ThemeSwitcherOptionsProps & ProfileThemeOptionsProps) {
+  const { t } = useI18n();
   // Per-profile inheritance toggle: when scoped to a named profile, show
   // the inheritance control above the theme list. When inherited, hide the
   // theme list (the user sees "Inherited from default profile").
@@ -277,7 +278,9 @@ function ThemeSwitcherOptions({
       {(!showInheritanceSection || !isInherited) && (
         <>
           {availableThemes.map((th) => {
-            const isActive = th.name === themeName;
+            const isActive = isProfileScoped
+              ? th.name === _overrideThemeName
+              : th.name === themeName;
             const paletteTheme = BUILTIN_THEMES[th.name] ?? th.definition;
 
             return (
@@ -287,7 +290,11 @@ function ThemeSwitcherOptions({
                 className="gap-3"
                 key={th.name}
                 onClick={() => {
-                  setTheme(th.name);
+                  if (isProfileScoped) {
+                    _setOverride(isProfileScoped ? th.name : "");
+                  } else {
+                    setTheme(th.name);
+                  }
                   close();
                 }}
                 role="option"
@@ -379,7 +386,7 @@ function FontSection({ fontChoices, fontId, setFont }: FontSectionProps) {
       {order.map((cat) => {
         const fonts = fontChoices.filter((f) => f.category === cat);
         if (fonts.length === 0) return null;
-        const catLabel = t.font?.[FONT_CATEGORY_LABEL_KEY[cat] as keyof typeof t.font] ?? cat;
+        const catLabel = t.theme?.[FONT_CATEGORY_LABEL_KEY[cat] as keyof typeof t.theme] ?? cat;
         return (
           <div key={cat}>
             <div className="px-3 pb-0.5 pt-1.5">
