@@ -36,7 +36,7 @@ interface ProfileThemeOptionsProps {
  * the sidebar (same idea as a responsive Drawer).
  */
 export function ThemeSwitcher({ collapsed = false, dropUp = false }: ThemeSwitcherProps) {
-  const { themeName, availableThemes, setTheme, fontId, fontChoices, setFont } = useTheme();
+  const { themeName, activeThemeName, availableThemes, setTheme, fontId, fontChoices, setFont } = useTheme();
   const { t } = useI18n();
   const profileTheme = useProfileTheme();
   const [open, setOpen] = useState(false);
@@ -68,8 +68,8 @@ export function ThemeSwitcher({ collapsed = false, dropUp = false }: ThemeSwitch
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [open, close, useMobileSheet]);
 
-  const current = availableThemes.find((th) => th.name === themeName);
-  const label = current?.label ?? themeName;
+  const current = availableThemes.find((th) => th.name === activeThemeName);
+  const label = current?.label ?? activeThemeName;
   const sheetTitle = t.theme?.title ?? "Theme";
 
   return (

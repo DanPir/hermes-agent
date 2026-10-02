@@ -44,7 +44,7 @@ export async function setProfileTheme(body: ProfileThemeSetBody) {
 
 export function useProfileTheme() {
   const { profile } = useProfileScope();
-  const { setTheme } = useTheme();
+  const { setThemeOverride } = useTheme();
   const [raw, setRaw] = useState<ProfileThemeGetResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -75,11 +75,17 @@ export function useProfileTheme() {
     return raw.theme;
   }, [raw]);
 
+  // Render the profile's override WITHOUT touching the global theme: the
+  // provider's `setTheme` persists to localStorage and the server, so using it
+  // here leaked one profile's choice into every other profile. The effect's
+  // cleanup clears the override whenever the effective theme changes (profile
+  // switch, "inherit" toggled on) and on unmount, so `undefined` always means
+  // "render the global theme" again.
   useEffect(() => {
-    if (effectiveThemeName) {
-      setTheme(effectiveThemeName);
-    }
-  }, [effectiveThemeName, setTheme]);
+    if (!effectiveThemeName) return;
+    setThemeOverride(effectiveThemeName);
+    return () => setThemeOverride(undefined);
+  }, [effectiveThemeName, setThemeOverride]);
 
   const setOverride = useCallback(
     (themeName: string) => {
