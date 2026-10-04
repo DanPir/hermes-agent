@@ -442,6 +442,13 @@ class TestWebhookEndpoints:
                 return None
 
         monkeypatch.setitem(_web_server_gateway._ACTION_PROCS, "gateway-restart", FakeRunningProc())
+        # _spawn_hermes_action always records the command next to the process; a live child with no
+        # recorded command is not provably this restart's own and is deliberately not reused.
+        monkeypatch.setitem(
+            _web_server_gateway._ACTION_COMMANDS,
+            "gateway-restart",
+            ("-p", "default", "gateway", "restart"),
+        )
 
         def fail_spawn_action(subcommand, name):
             raise AssertionError("must not spawn a second concurrent restart")

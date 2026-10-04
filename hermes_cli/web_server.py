@@ -916,6 +916,21 @@ GATEWAY_RESTART_COOLDOWN_SECONDS = 10.0
 _GATEWAY_RESTARTS_BY_PROFILE: Dict[str, Tuple[float, subprocess.Popen, Tuple[str, ...]]] = {}
 
 
+def _restart_target_key(subcommand: "list[str]") -> str:
+    """The profile a resolved ``hermes [-p X] gateway restart`` argv restarts (``""`` = no selector).
+
+    This is the key of ``_GATEWAY_RESTARTS_BY_PROFILE``: it must name the process that actually
+    restarts, which is not always the profile that was requested (a multiplexer-served profile
+    resolves to ``-p default``).
+    """
+    args = list(subcommand)
+    if "-p" in args:
+        i = args.index("-p")
+        if i + 1 < len(args):
+            return args[i + 1].strip()
+    return ""
+
+
 def _spawn_gateway_restart(profile: Optional[str] = None) -> Tuple[subprocess.Popen, bool]:
     """Spawn ``hermes gateway restart``, reusing an in-flight or recent restart
     FOR THE SAME PROFILE ONLY. Different profiles never block each other —
@@ -930,8 +945,12 @@ def _spawn_gateway_restart(profile: Optional[str] = None) -> Tuple[subprocess.Po
     the profile's gateway and then the child refused to start a replacement
     (#125394). Returns ``(proc, reused)``.
     """
-    profile_key = (profile or "").strip()
     subcommand = _gateway_mod._gateway_subcommand(profile, "restart")
+    # Key by the gateway the child will actually restart, not by what was asked: a profile served
+    # by the host multiplexer is rewritten to ``-p default``, and an empty request resolves to the
+    # process's own profile. Keying on the request filed the cooldown under a name the restarting
+    # process never consults, and gave one gateway two keys.
+    profile_key = _restart_target_key(subcommand)
 
     recent = _GATEWAY_RESTARTS_BY_PROFILE.get(profile_key)
     if recent is not None:
@@ -953,13 +972,14 @@ def _spawn_gateway_restart(profile: Optional[str] = None) -> Tuple[subprocess.Po
             return recent_proc, True
 
     # A restart child registered under the shared action NAME but not in the per-profile map
-    # (spawned through another path, e.g. the webhook/channel auto-restart). Reuse it when it is
-    # this profile's own restart; a live child for ANOTHER profile is not ours to reuse and must
-    # not block us either.
+    # (spawned through another path, e.g. the webhook/channel auto-restart). Reuse it ONLY when
+    # its recorded command is provably this restart's own. A missing record proves nothing, so it
+    # is not reused: handing back a live child that may belong to another profile is the
+    # cross-profile reuse the per-profile map exists to prevent.
     existing = _gateway_mod._ACTION_PROCS.get("gateway-restart")
     if existing is not None and existing.poll() is None:
         existing_command = _gateway_mod._ACTION_COMMANDS.get("gateway-restart")
-        if existing_command is None or existing_command == tuple(subcommand):
+        if existing_command is not None and tuple(existing_command) == tuple(subcommand):
             return existing, True
 
     proc = _gateway_mod._spawn_hermes_action(subcommand, "gateway-restart")
