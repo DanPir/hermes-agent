@@ -71,12 +71,13 @@ const ctl: { go?: (p: string) => void } = {};
 function Probe() {
   const { setProfile } = useProfileScope();
   const theme = useTheme();
-  useProfileTheme();
+  const profileTheme = useProfileTheme();
   ctl.go = setProfile;
   return (
     <div
       data-global={theme.themeName}
       data-rendered={theme.activeThemeName}
+      data-override={profileTheme.overrideThemeName ?? ""}
     />
   );
 }
@@ -84,6 +85,10 @@ function Probe() {
 function seen() {
   const el = container.querySelector("div")!;
   return { global: el.dataset.global, rendered: el.dataset.rendered };
+}
+
+function overrideSeen() {
+  return container.querySelector("div")!.dataset.override;
 }
 
 async function mount() {
@@ -159,5 +164,13 @@ describe("profile theme override", () => {
     expect(seen()).toEqual({ global: "midnight", rendered: "midnight" });
     expect(storage.getItem("hermes-dashboard-theme")).toBe("midnight");
     expect(setThemeCalls).toEqual([]);
+  });
+
+  it("exposes the profile's own override so the theme list can highlight it", async () => {
+    await mount();
+    await switchTo("work");
+    // ThemeSwitcher spreads this hook into its options list and marks the
+    // matching theme active; without it a scoped profile shows none selected.
+    expect(overrideSeen()).toBe("ember");
   });
 });

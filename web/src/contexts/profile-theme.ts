@@ -107,6 +107,8 @@ export function useProfileTheme() {
     profileTheme: raw,
     effectiveThemeName,
     isInherited: raw ? raw.inherit_from_default : false,
+    // The theme list marks this one active for a profile-scoped switcher.
+    overrideThemeName: raw?.theme,
     source: raw?.source ?? "global",
     isProfileScoped: Boolean(profile) && profile !== "default",
     setOverride,
