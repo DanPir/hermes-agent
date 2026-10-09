@@ -20,9 +20,9 @@ from hermes_cli import gateway as gw
 def reset_restart_cooldown():
     import hermes_cli.web_server as web_server
 
-    web_server._GATEWAY_RESTARTS_BY_PROFILE.clear()
+    web_server._LAST_GATEWAY_RESTART = None
     yield
-    web_server._GATEWAY_RESTARTS_BY_PROFILE.clear()
+    web_server._LAST_GATEWAY_RESTART = None
 
 
 @patch("hermes_cli.web_server_gateway._gateway_subcommand", return_value=["gateway", "restart"])
